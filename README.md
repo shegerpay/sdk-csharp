@@ -1,19 +1,16 @@
 <p align="center"><img src="logo.png" alt="ShegerPay" width="200" /></p>
 
-# ShegerPay C# .NET SDK
+# ShegerPay C# / .NET SDK
 
-Official C# .NET SDK for [ShegerPay](https://shegerpay.com) — Ethiopian payment verification.
+[![Version](https://img.shields.io/badge/version-2.2.0-blue)](https://www.nuget.org/packages/ShegerPay.SDK)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-## Installation
+Official C# SDK for ShegerPay — verify Ethiopian bank payments (CBE, Telebirr, BOA, Awash).
+
+## Install
 
 ```bash
 dotnet add package ShegerPay.SDK
-```
-
-Or via the NuGet Package Manager:
-
-```
-Install-Package ShegerPay.SDK
 ```
 
 ## Quick Start
@@ -21,49 +18,42 @@ Install-Package ShegerPay.SDK
 ```csharp
 using ShegerPay;
 
-var client = new ShegerPayClient("sk_live_...");
+var client = new ShegerPayClient("sk_live_YOUR_API_KEY");
 
-var response = await client.VerifyAsync("txn_abc123");
+// Verify a payment
+var result = await client.VerifyAsync("FT26062K7WMY", provider: "cbe", amount: 1000);
+Console.WriteLine(result.Verified); // true/false
 
-if (response.IsSuccess)
-{
-    Console.WriteLine($"Payment verified: {response.TransactionId}");
-    Console.WriteLine($"Amount: {response.Amount}");
-}
-else
-{
-    Console.WriteLine($"Verification failed: {response.Message}");
-}
+// Verify without amount (lookup only)
+var result2 = await client.VerifyAsync("FT26062K7WMY", provider: "telebirr");
+Console.WriteLine(result2.Status);
+
+// Verify from receipt screenshot
+var imageBytes = File.ReadAllBytes("receipt.png");
+var imageBase64 = Convert.ToBase64String(imageBytes);
+var imgResult = await client.VerifyImageAsync(imageBase64, provider: "cbe");
+Console.WriteLine(imgResult.Verified);
+
+// Create payment link
+var link = await client.CreatePaymentLinkAsync(new {
+    title = "Order #1234",
+    amount = 1500,
+    currency = "ETB"
+});
+Console.WriteLine(link.Url);
+
+// Webhook signature check
+bool valid = ShegerPayClient.VerifyWebhookSignature(payload, signature, secret);
 ```
 
-## API Reference
-
-### `new ShegerPayClient(apiKey)`
-
-Creates a new ShegerPay client.
-
-| Parameter | Type   | Description        |
-|-----------|--------|--------------------|
-| `apiKey`  | string | Your secret API key |
-
-### `client.VerifyAsync(transactionId)`
-
-Asynchronously verifies a payment transaction.
-
-| Parameter       | Type   | Description              |
-|-----------------|--------|--------------------------|
-| `transactionId` | string | The transaction ID to verify |
-
-Returns a `VerifyResponse` with:
-- `IsSuccess` — whether the payment was successful
-- `TransactionId` — the transaction ID
-- `Amount` — the verified amount
-- `Message` — status message
+## Supported Providers
+`cbe` · `telebirr` · `boa` · `awash` · `ebirr_kaafi` · `ebirr_coop`
 
 ## Requirements
+- .NET 6.0+
 
-- .NET 6.0+ (or .NET Standard 2.0+)
 
-## License
-
-MIT — see [LICENSE](LICENSE)
+## Support
+- 📚 Docs: https://shegerpay.com/docs
+- 💬 Telegram: [@shegerpay_0](https://t.me/shegerpay_0)
+- 📧 Email: support@shegerpay.com
