@@ -10,7 +10,7 @@
     <Authors>ShegerPay</Authors>
     <Description>Official C# SDK for the ShegerPay Payment Verification Gateway.</Description>
     <PackageTags>shegerpay;payments;ethiopia;verification</PackageTags>
-    <RepositoryUrl>https://github.com/black12-ag/ShegerPay</RepositoryUrl>
+    <RepositoryUrl>https://github.com/shegerpay/sdk-csharp</RepositoryUrl>
   </PropertyGroup>
 
   <ItemGroup>
