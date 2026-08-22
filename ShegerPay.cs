@@ -18,7 +18,7 @@ namespace ShegerPay.SDK
     /// </summary>
     public class ShegerPayClient : IDisposable
     {
-        private const string Version = "1.0.0";
+        private const string Version = "2.2.1";
         private const string DefaultBaseUrl = "https://api.shegerpay.com";
         
         private readonly string _apiKey;
@@ -105,12 +105,114 @@ namespace ShegerPay.SDK
         /// </summary>
         public async Task<List<Dictionary<string, object>>> GetHistoryAsync()
         {
-            var response = await DoRequestAsync("GET", "/api/v1/history", null);
-            // Parse as list
-            return new List<Dictionary<string, object>>();
+            return await GetListAsync("/api/v1/history");
         }
-        
-        private async Task<Dictionary<string, object>> DoRequestAsync(string method, string path, 
+
+        /// <summary>
+        /// Verify a payment from a receipt image/screenshot (or PDF).
+        ///
+        /// Works for ANY supported bank — the backend reads the receipt's QR code
+        /// (CBE, Telebirr, BOA…) or OCRs the reference and auto-detects the provider.
+        /// Just pass the image bytes; no need to know the bank or pre-extract the ref.
+        /// </summary>
+        public async Task<VerificationResult> VerifyImageAsync(byte[] screenshot, string provider = null,
+            double? amount = null, string transactionId = null, string merchantName = null, string senderAccount = null)
+        {
+            var form = new MultipartFormDataContent();
+            if (provider != null) form.Add(new StringContent(provider), "provider");
+            if (amount.HasValue) form.Add(new StringContent(amount.Value.ToString()), "amount");
+            if (transactionId != null) form.Add(new StringContent(transactionId), "transaction_id");
+            if (merchantName != null) form.Add(new StringContent(merchantName), "merchant_name");
+            if (senderAccount != null) form.Add(new StringContent(senderAccount), "sender_account");
+            var fileContent = new ByteArrayContent(screenshot);
+            form.Add(fileContent, "screenshot", "receipt.png");
+
+            var response = await _httpClient.PostAsync($"{_baseUrl}/api/v1/verify-image", form);
+            var responseBody = await response.Content.ReadAsStringAsync();
+
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                throw new ShegerPayException("Invalid API key");
+            if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+                throw new ShegerPayException($"Validation error: {responseBody}");
+
+            Dictionary<string, object> data;
+            try { data = JsonSerializer.Deserialize<Dictionary<string, object>>(responseBody); }
+            catch { data = new Dictionary<string, object>(); }
+            return new VerificationResult(data);
+        }
+
+        /// <summary>Create a shareable payment link</summary>
+        public async Task<System.Collections.Generic.Dictionary<string, object>> CreatePaymentLinkAsync(
+            string title, double amount, string currency = "ETB", string description = null)
+        {
+            var form = new System.Collections.Generic.Dictionary<string, string>
+            {
+                ["title"] = title,
+                ["amount"] = amount.ToString(),
+                ["currency"] = currency
+            };
+            if (description != null) form["description"] = description;
+            return await PostJsonAsync("/api/v1/payment-links", form);
+        }
+
+        /// <summary>List all payment links</summary>
+        public async Task<System.Collections.Generic.List<System.Collections.Generic.Dictionary<string, object>>> ListPaymentLinksAsync()
+        {
+            // The backend returns {"links": [...], "total": n}.
+            return await GetListAsync("/api/v1/payment-links", "links");
+        }
+
+        /// <summary>Delete a payment link</summary>
+        public async Task DeletePaymentLinkAsync(string linkId)
+        {
+            await DeleteAsync("/api/v1/payment-links/" + linkId);
+        }
+
+        private async Task<Dictionary<string, object>> PostJsonAsync(string path, Dictionary<string, string> form)
+        {
+            return await DoRequestAsync("POST", path, form);
+        }
+
+        /// <summary>
+        /// GET a list endpoint. When <paramref name="listKey"/> is given and the
+        /// response is a JSON object, the array is read from that property;
+        /// a bare top-level JSON array is handled in both cases.
+        /// </summary>
+        private async Task<List<Dictionary<string, object>>> GetListAsync(string path, string listKey = null)
+        {
+            var url = $"{_baseUrl}{path}";
+            var response = await _httpClient.GetAsync(url);
+            var body = await response.Content.ReadAsStringAsync();
+            try
+            {
+                using (var doc = JsonDocument.Parse(body))
+                {
+                    var root = doc.RootElement;
+                    var listElement = root;
+                    if (root.ValueKind == JsonValueKind.Object)
+                    {
+                        if (listKey == null || !root.TryGetProperty(listKey, out listElement))
+                            return new List<Dictionary<string, object>>();
+                    }
+                    if (listElement.ValueKind != JsonValueKind.Array)
+                        return new List<Dictionary<string, object>>();
+                    return JsonSerializer.Deserialize<List<Dictionary<string, object>>>(listElement.GetRawText())
+                        ?? new List<Dictionary<string, object>>();
+                }
+            }
+            catch
+            {
+                return new List<Dictionary<string, object>>();
+            }
+        }
+
+        private async Task DeleteAsync(string path)
+        {
+            var url = $"{_baseUrl}{path}";
+            await _httpClient.DeleteAsync(url);
+        }
+
+        private async Task<Dictionary<string, object>> DoRequestAsync(string method, string path,
             Dictionary<string, string> data)
         {
             var url = $"{_baseUrl}{path}";

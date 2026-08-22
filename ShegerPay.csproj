@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <RootNamespace>ShegerPay.SDK</RootNamespace>
+    <AssemblyName>ShegerPay.SDK</AssemblyName>
+    <PackageId>ShegerPay.SDK</PackageId>
+    <Version>2.2.1</Version>
+    <Authors>ShegerPay</Authors>
+    <Description>Official C# SDK for the ShegerPay Payment Verification Gateway.</Description>
+    <PackageTags>shegerpay;payments;ethiopia;verification</PackageTags>
+    <RepositoryUrl>https://github.com/black12-ag/ShegerPay</RepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- System.Text.Json is not part of the netstandard2.0 base library. -->
+    <PackageReference Include="System.Text.Json" Version="6.0.10" />
+  </ItemGroup>
+
+</Project>
